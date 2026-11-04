@@ -1,0 +1,17 @@
+# Publish only the application and its documentation.
+/*
+!/.gitignore
+!/README.md
+!/repo-seed/
+node_modules/
+dist/
+*.tsbuildinfo
+.openai/
+.vercel/
+qa/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.log

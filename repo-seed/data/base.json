@@ -1,0 +1,268 @@
+{
+  "_meta": {
+    "source": "Публичная группа ВК vk.com/point_of_count: описание сообщества и описания фотоальбомов, собрано 30.10.2026",
+    "priceSource": "Цены взяты из описания сообщества. В описаниях альбомов залов 1–5 указаны старые цены (800/1000–1200 ₽), их НЕ использовать.",
+    "needsCheck": [
+      "Зал 6: нет альбома — неизвестны площадь, оборудование, фото",
+      "Зал 7: оборудование в описании альбома обрезано",
+      "Неустойка зала 7: в альбоме указано 1200 ₽, в общем описании 1000 ₽",
+      "Хэт B8 / креш B20 / райд B8 — вероятно, Sabian; в оригинале бренд не указан",
+      "Зал 3: фото недоступны, используется заглушка",
+      "Зал 7: фото маленькие (540px), на крупных карточках могут быть мыльными"
+    ]
+  },
+  "base": {
+    "name": "Точка Отсчёта",
+    "fullName": "Репетиционная база «Точка Отсчёта»",
+    "tagline": "Хорошее соотношение цены и качества",
+    "city": "Санкт-Петербург",
+    "address": "наб. Обводного канала, 134-136-138, лит. ВО",
+    "metro": [
+      "Балтийская",
+      "Нарвская"
+    ],
+    "coords": {
+      "lat": 59.907302,
+      "lng": 30.282316
+    },
+    "yandexMapsUrl": "https://yandex.ru/maps/org/tochka_otschyota/1343545015/",
+    "subscribersVk": "3,8 тыс.",
+    "contacts": {
+      "phone": "+7 904 614-89-61",
+      "telegram": "https://t.me/Otscheta",
+      "max": "https://max.ru/u/f9LHodD0cOIZ8CcW1NtGBzUIf-bIjfBgTWt2_zf0F1gRqoK1CjZ53ZvJb1k",
+      "whatsapp": "+7 904 614-89-61",
+      "vk": "https://vk.com/point_of_count",
+      "adminHours": "11:00–22:00",
+      "callsAccepted": false,
+      "note": "На звонки не отвечаем. Пишите сразу число, время и комнату."
+    }
+  },
+  "schedule": {
+    "slots": [
+      {
+        "id": "s1",
+        "start": "11:00",
+        "end": "14:00"
+      },
+      {
+        "id": "s2",
+        "start": "14:00",
+        "end": "17:00"
+      },
+      {
+        "id": "s3",
+        "start": "17:00",
+        "end": "20:00"
+      },
+      {
+        "id": "s4",
+        "start": "20:00",
+        "end": "23:00"
+      }
+    ],
+    "slotHours": 3,
+    "tariffRules": {
+      "day": "Будни (пн–пт), слоты 11–14, 14–17, 17–20",
+      "peak": "Будни 20–23 и все слоты в субботу и воскресенье"
+    }
+  },
+  "rooms": [
+    {
+      "id": 1,
+      "name": "Зал 1",
+      "area": 33,
+      "prices": {
+        "day": 1100,
+        "peak": 1400
+      },
+      "equipment": [
+        "Барабаны Sonor 3005",
+        "Бас: Hartke 3500 + кабинеты Hartke 215 (2×15) 400 Вт и Hartke HyDrive (4×10) 1000 Вт",
+        "Гитара, стек 1: Randall RX120 + 2 кабинета Randall 4×12",
+        "Гитара, стек 2: Hiwatt-Maxwatt G200R/HD + 2 кабинета Randall"
+      ],
+      "photos": [
+        "/photos/room-01-01.jpg",
+        "/photos/room-01-02.jpg",
+        "/photos/room-01-03.jpg"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Зал 2",
+      "area": 23,
+      "prices": {
+        "day": 1000,
+        "peak": 1300
+      },
+      "equipment": [
+        "Барабаны Sonor 3007",
+        "Бас: Hartke 3500 + кабинет Laney (4×10) 400 Вт",
+        "Гитара, стек 1: Randall + кабинет Randall 4×12",
+        "Гитара, стек 2: Hiwatt-Maxwatt G200R/HD + кабинет Hiwatt Maxwatt M412 4×12 400 Вт",
+        "Линия MVM 2×12\" 2×800 RMS + усилитель Yamaha, микшер Yamaha с ревербом"
+      ],
+      "photos": [
+        "/photos/room-02-01.jpg",
+        "/photos/room-02-02.jpg",
+        "/photos/room-02-03.jpg"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Зал 3",
+      "area": 33,
+      "prices": {
+        "day": 1100,
+        "peak": 1400
+      },
+      "equipment": [
+        "Барабаны Sonor 3005",
+        "Бас: Hartke 3500 + кабинеты Hartke HyDrive (4×10) 1000 Вт и HyDrive (1×15) 400 Вт",
+        "Гитара, стек 1: Randall RX120 + 2 кабинета Randall 4×12",
+        "Гитара, стек 2: Hiwatt-Maxwatt G200R/HD + 2 кабинета Hiwatt Maxwatt M412 (4×10)"
+      ],
+      "photos": [],
+      "_needsCheck": "Фото в альбоме ВК не открываются: показывать заглушку"
+    },
+    {
+      "id": 4,
+      "name": "Зал 4",
+      "area": 23,
+      "prices": {
+        "day": 1000,
+        "peak": 1300
+      },
+      "equipment": [
+        "Барабаны Sonor 2007",
+        "Бас: Hiwatt + кабинет Wassago (4×10) 400 Вт",
+        "Гитара, стек 1: Hiwatt-Maxwatt G200R/HD + кабинет M412 4×12",
+        "Гитара, стек 2: Hiwatt-Maxwatt G200R/HD + кабинет M412 4×12 400 Вт"
+      ],
+      "photos": [
+        "/photos/room-04-01.jpg",
+        "/photos/room-04-02.jpg",
+        "/photos/room-04-03.jpg"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Зал 5",
+      "area": 14,
+      "prices": {
+        "day": 1000,
+        "peak": 1200
+      },
+      "equipment": [
+        "Барабаны Sonor 2007",
+        "Бас-комбо Ampeg 200 Вт",
+        "Гитара 1: Randall + кабинет Randall 4×12",
+        "Гитара 2: Torque + кабинет Hiwatt M412 4×12",
+        "Линия MVM 2×12\" 2×800 RMS + усилитель Yamaha, микшер Yamaha с ревербом и эффектами",
+        "2 микрофона, гитарные и клавишные стойки"
+      ],
+      "photos": [
+        "/photos/room-05-01.jpg",
+        "/photos/room-05-02.jpg",
+        "/photos/room-05-03.jpg"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Зал 6",
+      "area": null,
+      "prices": {
+        "day": 1000,
+        "peak": 1200
+      },
+      "equipment": null,
+      "photos": [],
+      "_needsCheck": "Нет данных в группе: показывать карточку без фото и площади, оборудование — «уточняйте у администратора»"
+    },
+    {
+      "id": 7,
+      "name": "Зал 7",
+      "area": 31,
+      "floor": 1,
+      "prices": {
+        "day": 1400,
+        "peak": 1700
+      },
+      "equipment": null,
+      "photos": [
+        "/photos/room-07-01.jpg",
+        "/photos/room-07-02.jpg",
+        "/photos/room-07-03.jpg"
+      ],
+      "_needsCheck": "Список оборудования в альбоме обрезан"
+    }
+  ],
+  "rentals": [
+    {
+      "id": "pedal",
+      "name": "Педаль и рабочий",
+      "price": 0
+    },
+    {
+      "id": "cymbals",
+      "name": "Комплект железа: хэт B8, креш B20, райд B8",
+      "price": 200
+    },
+    {
+      "id": "cymbals-fx",
+      "name": "Комплект железа с вырезами",
+      "price": 50
+    },
+    {
+      "id": "china",
+      "name": "Чайна",
+      "price": 100
+    },
+    {
+      "id": "crash-extra",
+      "name": "Дополнительный крэш",
+      "price": 100
+    },
+    {
+      "id": "double-pedal",
+      "name": "Кардан Tama / Yamaha DFP-9310",
+      "price": 100
+    },
+    {
+      "id": "guitar",
+      "name": "Гитара Dean / Epiphone",
+      "price": 100
+    },
+    {
+      "id": "bass",
+      "name": "Бас Yamaha / Ibanez / Squier / Apollo",
+      "price": 100
+    },
+    {
+      "id": "synth",
+      "name": "Синтезатор Casio CTK-3200 / Yamaha E433",
+      "price": 100
+    },
+    {
+      "id": "mic",
+      "name": "Микрофон (первые 2 бесплатно)",
+      "price": 50,
+      "freeQty": 2,
+      "perUnit": true,
+      "note": "если есть в наличии"
+    }
+  ],
+  "rules": {
+    "cancellation": {
+      "minHoursBefore": 48,
+      "fee": {
+        "default": 1000,
+        "weekdayDay": 700
+      },
+      "text": "Отмена или перенос не позже чем за двое суток. Иначе неустойка 1000 ₽ (700 ₽ за дневную репетицию в будни)."
+    },
+    "currentBookingProcess": "Сейчас бронь считается подтверждённой, только когда админ ответил «записал».",
+    "freeStorage": "Хранение инструментов — бесплатно"
+  }
+}
