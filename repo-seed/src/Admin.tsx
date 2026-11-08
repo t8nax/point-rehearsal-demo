@@ -1,3 +1,7 @@
+import AdminHalls from './AdminHalls';
+import AdminPricing from './AdminPricing';
+import { halls } from './halls';
+import { pricing } from './pricing';
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import AdminEquipment from './AdminEquipment';
@@ -8,7 +12,7 @@ import AdminSelect from './AdminSelect';
 import './admin.css';
 import { equipmentCatalog, equipmentTariff } from './equipment-catalog';
 
-const money = (value: number) => `${value.toLocaleString('ru-RU')} ₽`;
+const money = (value: number | null) => value === null ? 'Цена не указана' : `${value.toLocaleString('ru-RU')} ₽`;
 const slotText = (id: string) => { const slot = base.schedule.slots.find(item => item.id === id); return slot ? `${slot.start}–${slot.end}` : id; };
 type Selection = { bookingId: string } | { roomId: number; slotId: string; date: string };
 type ActionConfirmation = 'cancelled' | 'no_show' | { undo: BookingUndoAction; completedAt?: string; paidAt?: string; noShowAt?: string };
@@ -18,7 +22,7 @@ const undoLabels: Record<BookingUndoAction, string> = {
   payment: 'Отменить завершение',
   no_show: 'Отменить неявку',
 };
-type IconName = 'grid' | 'arrow' | 'calendar' | 'plus' | 'close' | 'check' | 'clock' | 'user' | 'chevron' | 'ban' | 'undo';
+type IconName = 'cymbal' | 'key' | 'tag' | 'grid' | 'arrow' | 'calendar' | 'plus' | 'close' | 'check' | 'clock' | 'user' | 'chevron' | 'ban' | 'undo';
 
 function useClock() {
   const [now, setNow] = useState(() => new Date());
@@ -29,7 +33,7 @@ function useClock() {
 function Equipment({ booking, onError }: { booking: Booking; onError: (message: string) => void }) {
   const catalog = useSyncExternalStore(equipmentCatalog.subscribe, equipmentCatalog.get, equipmentCatalog.get);
   const editable = booking.status === 'confirmed' && !booking.paidAt;
-  const selected = catalog.filter(item => booking.rentals[item.id] > 0).map(item => ({ ...item, ...(booking.rentalSnapshot?.[item.id] || base.rentals.find(original => original.id === item.id)) }));
+  const selected = Object.keys(booking.rentals).filter(id => booking.rentals[id] > 0).flatMap(id => { const item = booking.rentalSnapshot?.[id] || catalog.find(x => x.id === id) || base.rentals.find(x => x.id === id); return item ? [{ ...item, id }] : []; });
   function change(id: string, qty: number) {
     try { store.updateRentals(booking.id, { ...booking.rentals, [id]: qty }); onError(''); }
     catch (cause) { onError(cause instanceof Error ? cause.message : 'Не удалось сохранить оборудование'); }
@@ -46,6 +50,9 @@ function Equipment({ booking, onError }: { booking: Booking; onError: (message: 
 function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, ReactNode> = {
     grid: <><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,
+    cymbal: <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r=".6" fill="currentColor" stroke="none"/><path d="M7 8a6.4 6.4 0 0 1 3-2M17 16a6.4 6.4 0 0 1-3 2"/></>,
+    key: <><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></>,
+    tag: <><path d="M20 13 13 20a2 2 0 0 1-2.8 0L3 12.8V3h9.8l7.2 7.2a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1"/></>,
     arrow: <path d="M7 17 17 7M7 7h10v10"/>,
     calendar: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></>,
     plus: <path d="M12 5v14M5 12h14"/>, close: <path d="m6 6 12 12M18 6 6 18"/>,
@@ -61,6 +68,8 @@ function Icon({ name }: { name: IconName }) {
 
 function BookingPanel({ selection, onClose, onCreated }: { selection: Selection; onClose: () => void; onCreated: (booking: Booking) => void }) {
   const state = useSyncExternalStore(store.subscribe, store.get, store.get);
+  const allHalls = useSyncExternalStore(halls.subscribe, halls.get);
+  useSyncExternalStore(pricing.subscribe, pricing.get);
   const dialog = useRef<HTMLDialogElement>(null);
   const [error, setError] = useState('');
   const [confirmation, setConfirmation] = useState<ActionConfirmation | null>(null);
@@ -76,16 +85,16 @@ function BookingPanel({ selection, onClose, onCreated }: { selection: Selection;
   const [channel, setChannel] = useState('Telegram');
   const booking = 'bookingId' in selection ? state.bookings.find(item => item.id === selection.bookingId) : undefined;
   const undoAction = booking ? bookingUndoAction(booking) : null;
-  const room = base.rooms.find(item => item.id === (booking?.roomId ?? roomId))!;
+  const room = allHalls.find(item => item.id === (booking?.roomId ?? roomId));
+  const roomName = room?.name ?? booking?.roomName ?? base.rooms.find(r => r.id === booking?.roomId)?.name ?? `Зал ${booking?.roomId ?? roomId}`;
   const available = base.schedule.slots.filter(slot => !isPastSlot(date, slot.id) && !state.bookings.some(item => isActive(item) && item.roomId === roomId && item.date === date && item.slotId === slot.id));
   const slotAvailable = available.some(slot => slot.id === slotId);
 
   useEffect(() => {
     const element = dialog.current;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const overflow = document.body.style.overflow;
-    element?.showModal(); document.body.style.overflow = 'hidden';
-    return () => { element?.close(); document.body.style.overflow = overflow; previous?.focus({ preventScroll: true }); };
+    element?.showModal();
+    return () => { element?.close(); previous?.focus({ preventScroll: true }); };
   }, []);
 
   useEffect(() => {
@@ -138,16 +147,15 @@ function BookingPanel({ selection, onClose, onCreated }: { selection: Selection;
     {booking ? <div className="admin-panel-content">
       <div className="admin-booking-badges"><span className={`admin-booking-status ${booking.status}`}><Icon name={booking.status === 'confirmed' || booking.status === 'completed' ? 'check' : 'clock'}/>{statusLabels[booking.status]}</span>{isActive(booking) && <span className={`admin-payment-badge ${booking.paidAt ? 'paid' : ''}`}>{booking.paidAt ? 'Оплачено' : 'Не оплачено'}</span>}</div>
       <h3 className="admin-band-title">{booking.band}</h3>
-      <dl className="admin-summary"><div><dt>Зал</dt><dd>{room.name}</dd></div><div><dt>Дата</dt><dd>{formatDate(booking.date)}</dd></div><div><dt>Время</dt><dd>{slotText(booking.slotId)}</dd></div><div><dt>Способ связи</dt><dd>{booking.channel}</dd></div><div><dt>Контакт</dt><dd className="admin-contact-value">{booking.contact}</dd></div>{booking.demoIdentity && <div><dt>Вход</dt><dd>Telegram · демо</dd></div>}<div><dt>Источник</dt><dd>{booking.source === 'admin' ? 'Ручная запись' : booking.source === 'site' ? 'Сайт' : 'Демо-запись'}</dd></div></dl>
+      <dl className="admin-summary"><div><dt>Зал</dt><dd>{roomName}</dd></div><div><dt>Дата</dt><dd>{formatDate(booking.date)}</dd></div><div><dt>Время</dt><dd>{slotText(booking.slotId)}</dd></div><div><dt>Способ связи</dt><dd>{booking.channel}</dd></div><div><dt>Контакт</dt><dd className="admin-contact-value">{booking.contact}</dd></div>{booking.demoIdentity && <div><dt>Вход</dt><dd>Telegram · демо</dd></div>}<div><dt>Источник</dt><dd>{booking.source === 'admin' ? 'Ручная запись' : booking.source === 'site' ? 'Сайт' : 'Демо-запись'}</dd></div></dl>
       <Equipment booking={booking} onError={setError}/>
       <dl className="admin-cost-breakdown"><div><dt>Зал</dt><dd>{money(booking.total - bookingRentalTotal(booking))}</dd></div><div><dt>Оборудование</dt><dd>{money(bookingRentalTotal(booking))}</dd></div></dl>
       <div className="admin-panel-total"><span>{booking.paidAt ? 'Оплачено' : 'Итого'}</span><strong>{money(booking.total)}</strong></div>
       {(booking.status === 'confirmed' || booking.status === 'completed' || booking.status === 'no_show') && <div className="admin-lifecycle-actions">
-        {booking.status === 'confirmed' && bookingTimePhase(booking, now) === 'upcoming' && <p className="admin-form-hint">Расчёт доступен с начала репетиции.</p>}
-        {booking.status === 'confirmed' && <label className="admin-payment-check"><input type="checkbox" checked={paidOnCompletion} disabled={bookingTimePhase(booking, now) === 'upcoming'} onChange={event => setPaidOnCompletion(event.target.checked)}/><span>Оплачено</span></label>}
+        {booking.status === 'confirmed' && <label className="admin-payment-check"><input type="checkbox" checked={paidOnCompletion} onChange={event => setPaidOnCompletion(event.target.checked)}/><span>Оплачено</span></label>}
         {(booking.status === 'completed' && booking.paidAt || booking.status === 'no_show') && undoAction ? <button className="admin-undo-direct" onClick={() => setConfirmation({ undo: undoAction, completedAt: booking.completedAt, paidAt: booking.paidAt, noShowAt: booking.noShowAt })}><Icon name="undo"/>{undoLabels[undoAction]}</button> : <div className="admin-booking-actions" ref={actionsRef} onKeyDown={event => { if (event.key === 'Escape' && actionsOpen) { event.preventDefault(); event.stopPropagation(); setActionsOpen(false); actionsToggle.current?.focus(); } }}>
           <div className="admin-booking-action-row">
-            {booking.status === 'confirmed' && <button className="admin-primary" disabled={bookingTimePhase(booking, now) === 'upcoming'} onClick={() => perform(() => store.completeBooking(booking.id, paidOnCompletion))}><Icon name="check"/>Завершить репетицию</button>}
+            {booking.status === 'confirmed' && <button className="admin-primary" onClick={() => perform(() => store.completeBooking(booking.id, paidOnCompletion))}><Icon name="check"/>Завершить репетицию</button>}
             {booking.status === 'completed' && !booking.paidAt && <button className="admin-primary" onClick={() => perform(() => store.markPaid(booking.id))}>Отметить оплату</button>}
             <button ref={actionsToggle} className="admin-actions-toggle" aria-expanded={actionsOpen} aria-controls={actionsMenuId} onClick={() => { setActionsOpen(!actionsOpen); setConfirmation(null); }}>Ещё<Icon name="chevron"/></button>
           </div>
@@ -160,29 +168,33 @@ function BookingPanel({ selection, onClose, onCreated }: { selection: Selection;
       {confirmation && <div className="admin-action-confirmation" role="group" aria-label="Подтверждение действия"><p>{confirmationText()}</p><div className="admin-panel-actions"><button className="admin-danger" onClick={confirmAction}>{typeof confirmation === 'object' ? undoLabels[confirmation.undo] : confirmation === 'cancelled' ? 'Отменить бронь' : 'Подтвердить неявку'}</button><button onClick={() => setConfirmation(null)}>Назад</button></div></div>}
       {error && <p className="admin-error" role="alert">{error}</p>}
     </div> : <form className="admin-panel-content admin-form" onSubmit={submit}>
-      <div className="admin-form-pair"><AdminSelect label="Зал" value={String(roomId)} options={base.rooms.map(item => ({ value: String(item.id), label: item.name }))} onChange={value => { setRoomId(Number(value)); setSlotId(''); setError(''); }}/><AdminDatePicker label="Дата" showLabel value={date} min={today()} max={adminBookingEnd()} onChange={value => { setDate(value); setSlotId(''); setError(''); }}/></div>
+      <div className="admin-form-pair"><AdminSelect label="Зал" value={String(roomId)} options={allHalls.map(item => ({ value: String(item.id), label: item.name }))} onChange={value => { setRoomId(Number(value)); setSlotId(''); setError(''); }}/><AdminDatePicker label="Дата" showLabel value={date} min={today()} max={adminBookingEnd()} onChange={value => { setDate(value); setSlotId(''); setError(''); }}/></div>
       <AdminSelect label="Время" value={slotId} options={base.schedule.slots.map(slot => ({ value: slot.id, label: `${slot.start}–${slot.end}`, disabled: !available.some(item => item.id === slot.id) }))} onChange={value => { setSlotId(value); setError(''); }}/>
       {!slotAvailable && <p className="admin-form-hint" role="status">{available.length ? 'Выберите свободное время.' : 'На эту дату свободного времени в зале нет.'}</p>}
       <label>Имя или название группы<input name="band" required maxLength={80} placeholder="Введите имя или название группы"/></label>
       <AdminSelect label="Способ связи" name="channel" value={channel} options={['Telegram', 'MAX', 'WhatsApp'].map(value => ({ value, label: value }))} onChange={setChannel}/>
       <label>Контакт<input name="contact" required maxLength={120} placeholder="Номер телефона или @username"/></label>
-      <div className="admin-panel-total"><span>Стоимость зала</span><strong>{slotId ? money(price(room, date, slotId)) : '—'}</strong></div>
+      <div className="admin-panel-total"><span>Стоимость зала</span><strong>{slotId ? money(room ? price(room, date, slotId) : null) : '—'}</strong></div>
       {error && <p className="admin-error" role="alert">{error}</p>}
-      <button className="admin-primary admin-save" type="submit" disabled={!slotAvailable}><Icon name="plus"/>Создать бронь</button>
+      <button className="admin-primary admin-save" type="submit" disabled={!room || !slotAvailable || price(room, date, slotId) === null}><Icon name="plus"/>Создать бронь</button>
 
     </form>}
   </dialog>;
 }
 
 export default function Admin() {
-  const equipmentPage = useLocation().pathname === '/admin/equipment';
+  const pathname = useLocation().pathname;
+  const equipmentPage = pathname === '/admin/equipment';
+  const settingsPage = pathname !== '/admin';
   const state = useSyncExternalStore(store.subscribe, store.get, store.get);
+  const allHalls = useSyncExternalStore(halls.subscribe, halls.get);
+  useSyncExternalStore(pricing.subscribe, pricing.get);
   const now = useClock();
   const [date, setDate] = useState(today);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [roomFilter, setRoomFilter] = useState('all');
   const currentDay = today(now), minDate = addDays(currentDay, -14), maxDate = adminBookingEnd(currentDay);
-  const rooms = base.rooms.filter(room => roomFilter === 'all' || String(room.id) === roomFilter);
+  const rooms = allHalls.filter(room => roomFilter === 'all' || String(room.id) === roomFilter);
   const dayBookings = state.bookings.filter(booking => booking.date === date && isActive(booking));
 
   function changeDate(value: string) { if (value >= minDate && value <= maxDate) { setDate(value); setSelection(null); } }
@@ -192,13 +204,13 @@ export default function Admin() {
   return <div className="admin-app">
     <aside className="admin-sidebar" aria-label="Панель администратора">
       <div className="admin-logo"><span className="admin-logo-mark">Т</span><div><strong>ТОЧКА ОТСЧЁТА</strong><span>Администратор</span></div></div>
-      <nav className="admin-navigation" aria-label="Разделы панели администратора"><span className="admin-label">БРОНИРОВАНИЕ</span><Link to="/admin" className={!equipmentPage ? "admin-nav-current" : "admin-nav-link"} aria-current={!equipmentPage ? "page" : undefined}><Icon name="grid"/>Расписание</Link><Link to="/admin/equipment" className={equipmentPage ? "admin-nav-current" : "admin-nav-link"} aria-current={equipmentPage ? "page" : undefined}><Icon name="grid"/>Доп. оборудование</Link></nav>
-      <div className="admin-sidebar-bottom"><Link to="/" className="admin-site-link"><Icon name="arrow"/>Клиентский сайт</Link></div>
+      <nav className="admin-navigation" aria-label="Разделы панели администратора"><span className="admin-label">БРОНИРОВАНИЕ</span>{([['/admin', 'Расписание', 'grid'], ['/admin/equipment', 'Доп. оборудование', 'cymbal'], ['/admin/halls', 'Залы', 'key'], ['/admin/pricing', 'Тарифы', 'tag']] as const).map(([path, label, icon], index) => <div className="admin-nav-entry" key={path}>{index === 2 && <span className="admin-label">НАСТРОЙКИ</span>}<Link to={path} title={label} className={pathname === path ? 'admin-nav-current' : 'admin-nav-link'} aria-current={pathname === path ? 'page' : undefined}><Icon name={icon}/><span>{label}</span></Link></div>)}</nav>
+      <div className="admin-sidebar-bottom"><Link to="/" title="Клиентский сайт" className="admin-site-link"><Icon name="arrow"/><span>Клиентский сайт</span></Link></div>
     </aside>
     <div className="admin-main">
-      <header className="admin-toolbar"><div className="admin-toolbar-date-controls" style={equipmentPage ? { visibility: "hidden" } : undefined}><div className="admin-date-shortcuts" role="group" aria-label="Быстрый выбор дня">{[{ label: 'Вчера', value: addDays(currentDay, -1) }, { label: 'Сегодня', value: currentDay }, { label: 'Завтра', value: addDays(currentDay, 1) }].map(day => <button key={day.label} aria-pressed={date === day.value} onClick={() => changeDate(day.value)}>{day.label}</button>)}</div><AdminDatePicker label="Выбрать дату" value={date} min={minDate} max={maxDate} onChange={changeDate}/></div><span className="admin-demo-badge">Демо-концепт</span><button className="admin-primary admin-new-booking" onClick={() => select(newBookingDefaults(store.get().bookings))}><Icon name="plus"/><span>Новая бронь</span></button></header>
-      {equipmentPage ? <main className="admin-content"><AdminEquipment/></main> : <main className="admin-content">
-        <div className="admin-schedule-heading"><div><h1>Расписание</h1><p>{new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' }).format(new Date(`${date}T12:00:00Z`))}</p></div><div className="admin-schedule-tools"><div className="admin-day-arrows"><button className="admin-icon-button" aria-label="Предыдущий день" disabled={date <= minDate} onClick={() => changeDate(addDays(date, -1))}>←</button><button className="admin-icon-button" aria-label="Следующий день" disabled={date >= maxDate} onClick={() => changeDate(addDays(date, 1))}>→</button></div><AdminSelect label="Выбрать зал" hideLabel value={roomFilter} options={[{ value: 'all', label: 'Все залы' }, ...base.rooms.map(room => ({ value: String(room.id), label: room.name }))]} onChange={setRoomFilter}/></div></div>
+      <header className="admin-toolbar">{settingsPage ? <span aria-hidden="true"/> : <div className="admin-toolbar-date-controls"><div className="admin-date-shortcuts" role="group" aria-label="Быстрый выбор дня">{[{ label: 'Вчера', value: addDays(currentDay, -1) }, { label: 'Сегодня', value: currentDay }, { label: 'Завтра', value: addDays(currentDay, 1) }].map(day => <button key={day.label} aria-pressed={date === day.value} onClick={() => changeDate(day.value)}>{day.label}</button>)}</div><AdminDatePicker label="Выбрать дату" value={date} min={minDate} max={maxDate} onChange={changeDate}/></div>}<span className="admin-demo-badge">Демо-концепт</span><button className="admin-primary admin-new-booking" disabled={!allHalls.length} onClick={() => select(newBookingDefaults(store.get().bookings))}><Icon name="plus"/><span>Новая бронь</span></button></header>
+      {settingsPage ? (pathname === '/admin/pricing' ? <AdminPricing/> : <main className="admin-content">{equipmentPage ? <AdminEquipment/> : <AdminHalls/>}</main>) : <main className="admin-content">
+        <div className="admin-schedule-heading"><div><h1>Расписание</h1><p>{new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Moscow' }).format(new Date(`${date}T12:00:00Z`))}</p></div><div className="admin-schedule-tools"><div className="admin-day-arrows"><button className="admin-icon-button" aria-label="Предыдущий день" disabled={date <= minDate} onClick={() => changeDate(addDays(date, -1))}>←</button><button className="admin-icon-button" aria-label="Следующий день" disabled={date >= maxDate} onClick={() => changeDate(addDays(date, 1))}>→</button></div><AdminSelect label="Выбрать зал" hideLabel value={roomFilter} options={[{ value: 'all', label: 'Все залы' }, ...allHalls.map(room => ({ value: String(room.id), label: room.name }))]} onChange={setRoomFilter}/></div></div>
         <div className="admin-schedule-scroll" role="region" aria-label="Сетка расписания, залы по столбцам" tabIndex={0}>
           <table className="admin-schedule-table" style={{ minWidth: `${72 + rooms.length * 120}px` }}>
             <caption className="admin-sr-only">Расписание на {formatDate(date)}. Нажмите бронь для просмотра или свободное время для записи.</caption>

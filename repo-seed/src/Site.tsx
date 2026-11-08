@@ -1,3 +1,5 @@
+import { halls, hallCover } from './halls';
+import { pricing } from './pricing';
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { base, today, addDays, formatDate, price, statusLabels, isPastSlot, isActive, type Booking, type Room } from './domain';
@@ -6,7 +8,7 @@ import { demoAuth } from './demo-auth';
 import Equipment from './Equipment';
 import './client.css';
 
-const money = (value: number) => `${value.toLocaleString('ru-RU')} ₽`;
+const money = (value: number | null) => value === null ? 'Уточните цену' : `${value.toLocaleString('ru-RU')} ₽`;
 
 function ContactIcon({ kind }: { kind: 'send' | 'community' | 'chat' | 'phone' }) {
   const paths = {
@@ -23,7 +25,7 @@ function RoomPhoto({ room, src }: { room: Room; src?: string }) {
   useEffect(() => setFailed(false), [src]);
   return src && !failed
     ? <img src={src} alt={room.name} loading="lazy" onError={() => setFailed(true)} />
-    : <div className="client-placeholder"><span>{String(room.id).padStart(2, '0')}</span><small>Фото пока нет</small></div>;
+    : <div className="client-placeholder"><span>{String(halls.get().findIndex(h => h.id === room.id) + 1).padStart(2, '0')}</span><small>Фото пока нет</small></div>;
 }
 
 function Modal({ children, title, onClose, className = '' }: {
@@ -32,11 +34,10 @@ function Modal({ children, title, onClose, className = '' }: {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
-    const overflow = document.body.style.overflow;
     const element = dialog.current;
     element?.showModal();
-    document.body.style.overflow = 'hidden';
-    return () => { element?.close(); document.body.style.overflow = overflow; previous?.focus(); };
+
+    return () => { element?.close(); previous?.focus(); };
   }, []);
   return <dialog ref={dialog} className={`client-dialog ${className}`} aria-label={title}
     onCancel={event => { event.preventDefault(); event.stopPropagation(); onClose(); }}
@@ -56,9 +57,9 @@ function SlotButtons({ room, date, bookings, onSelect }: {
   return <div className="client-slots">{base.schedule.slots.map(slot => {
     const busy = bookings.some(booking => booking.roomId === room.id && booking.date === date && booking.slotId === slot.id && isActive(booking));
     const past = isPastSlot(date, slot.id);
-    const unavailable = busy || past;
+    const unavailable = busy || past || price(room, date, slot.id) === null;
     return <button key={slot.id} disabled={unavailable} onClick={() => onSelect(slot.id)}
-      aria-label={`${room.name}, ${slot.start}–${slot.end}, ${money(price(room, date, slot.id))}${unavailable ? `, ${busy ? 'занято' : 'прошло'}` : ''}`}>
+      aria-label={`${room.name}, ${slot.start}–${slot.end}, ${money(price(room, date, slot.id))}${unavailable ? `, ${busy ? 'занято' : past ? 'прошло' : 'цена не указана'}` : ''}`}>
       <span>{slot.start}–{slot.end}</span>
       <small>{money(price(room, date, slot.id))}</small>
     </button>;
@@ -67,6 +68,8 @@ function SlotButtons({ room, date, bookings, onSelect }: {
 
 export default function Site() {
   const state = useSyncExternalStore(store.subscribe, store.get);
+  const rooms = useSyncExternalStore(halls.subscribe, halls.get);
+  useSyncExternalStore(pricing.subscribe, pricing.get);
   const [date, setDate] = useState(today);
   const [details, setDetails] = useState<Room | null>(null);
   const [selection, setSelection] = useState<{ room: Room; slotId: string } | null>(null);
@@ -100,13 +103,13 @@ export default function Site() {
     </header>
 
     <main className="client-main client-container">
-      <div className="client-room-grid">{base.rooms.map(room => <article className="client-room" key={room.id}>
+      <div className="client-room-grid">{rooms.filter(room => room.visible).map(room => <article className="client-room" key={room.id}>
         <button className="client-room-photo" aria-label={`Фото и оборудование: ${room.name}`} onClick={() => setDetails(room)}>
-          <RoomPhoto room={room} src={room.photos[0]} />
+          <RoomPhoto room={room} src={hallCover(room)} />
         </button>
         <div className="client-room-body">
           <div className="client-room-heading">
-            <button onClick={() => setDetails(room)} aria-label={`Подробнее: ${room.name}`}><h2><span>Зал</span> {room.id}</h2></button>
+            <button onClick={() => setDetails(room)} aria-label={`Подробнее: ${room.name}`}><h2>{room.name}</h2></button>
             {room.area && <span className="client-area">{room.area} м²</span>}
           </div>
           <SlotButtons room={room} date={date} bookings={state.bookings} onSelect={slot => chooseSlot(room, slot)} />
@@ -128,8 +131,8 @@ export default function Site() {
       </div>
     </footer>
 
-    {details && <RoomDetails room={details} date={date} bookings={state.bookings} onClose={() => setDetails(null)} onSelect={slot => chooseSlot(details, slot)} />}
-    {selection && <BookingForm room={selection.room} date={date} slotId={selection.slotId} onClose={() => setSelection(null)} onBooked={booking => { setSelection(null); setResultId(booking.id); }} />}
+    {details && rooms.some(r => r.id === details.id && r.visible) && <RoomDetails room={rooms.find(r => r.id === details.id)!} date={date} bookings={state.bookings} onClose={() => setDetails(null)} onSelect={slot => chooseSlot(rooms.find(r => r.id === details.id)!, slot)} />}
+    {selection && rooms.some(r => r.id === selection.room.id && r.visible) && <BookingForm room={rooms.find(r => r.id === selection.room.id)!} date={date} slotId={selection.slotId} onClose={() => setSelection(null)} onBooked={booking => { setSelection(null); setResultId(booking.id); }} />}
     {result && <BookingResult booking={result} onClose={() => setResultId(null)} />}
   </div>;
 }
@@ -234,7 +237,7 @@ function BookingResult({ booking, onClose }: { booking: Booking; onClose: () => 
   return <Modal title="Результат записи" onClose={onClose} className="client-result-dialog">
     <div className="client-dialog-content">
       <div className="client-ticket-status" aria-live="polite"><span aria-hidden="true">✓</span>{title}</div>
-      <h2>{base.rooms.find(room => room.id === booking.roomId)?.name}</h2>
+      <h2>{booking.roomName ?? halls.get().find(room => room.id === booking.roomId)?.name ?? `Зал ${booking.roomId}`}</h2>
       <div className="client-ticket-date">
         <div><span>{month}</span><strong>{booking.date.slice(-2)}</strong><span>{weekday}</span></div>
         <div><strong>{slot.start}–{slot.end}</strong><span>{duration} часа</span></div>

@@ -175,16 +175,16 @@ it('does not reprice an existing room reservation when equipment changes', () =>
   store.updateRentals(created.id, { cymbals: 1 });
   expect(store.get().bookings.find(b => b.id === created.id)?.total).toBe(previousRoomAmount + 200);
 });
-it('one action records completion and payment and prevents subsequent edits or cancellation', () => {
+it('a future site booking can be completed and paid while retaining its schedule and edit protections', () => {
   const created = store.addBooking(available());
-  expect(() => store.completeBooking(created.id, true)).toThrow('после начала');
+  expect(slotStart(created.date, created.slotId).getTime()).toBeGreaterThan(Date.now());
   expect(() => store.markPaid(created.id)).toThrow();
-  vi.setSystemTime(slotStart(created.date, created.slotId));
   store.completeBooking(created.id, true);
   const completed = store.get().bookings.find(b => b.id === created.id)!;
   expect(completed.status).toBe('completed');
   expect(completed.completedAt).toBe(new Date().toISOString());
   expect(completed.paidAt).toBe(completed.completedAt);
+  expect(completed).toMatchObject({ date: created.date, slotId: created.slotId, source: 'site' });
   expect(completed.total).toBe(created.total);
   expect(isActive(completed)).toBe(true);
   expect(() => store.completeBooking(created.id, true)).toThrow();
@@ -192,9 +192,8 @@ it('one action records completion and payment and prevents subsequent edits or c
   expect(() => store.updateStatus(created.id, 'cancelled')).toThrow();
   expect(() => store.markPaid(created.id)).toThrow();
 });
-it('unpaid completion keeps the debt until payment is recorded separately', () => {
+it('future unpaid completion keeps the debt until payment is recorded separately', () => {
   const created = store.addBooking(available());
-  vi.setSystemTime(slotStart(created.date, created.slotId));
   store.completeBooking(created.id, false);
   const completed = store.get().bookings.find(b => b.id === created.id)!;
   expect(completed.status).toBe('completed');

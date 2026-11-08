@@ -1,3 +1,5 @@
+import { newId } from './id';
+import { halls } from './halls';
 import { addDays, adminBookingEnd, base, bookingRentalTotal, bookingUndoAction, isActive, isPastSlot, price, rentalTotal, today, type Booking, type BookingMode, type BookingStatus, type BookingUndoAction } from './domain';
 
 
@@ -5,6 +7,8 @@ import { addDays, adminBookingEnd, base, bookingRentalTotal, bookingUndoAction, 
 import { equipmentCatalog } from './equipment-catalog';
 
 export const STORAGE_KEY = 'point-of-count-demo-v1';
+const demoNames = ['Александр К.', 'Михаил С.', 'Дмитрий П.', 'Андрей В.', 'Алексей М.', 'Иван Н.'];
+const legacyGroupNames = ['Северный ветер', 'Тихий час', 'Бетон', 'Пятый такт', 'Дальний свет', 'Пауза'];
 
 export interface DemoState { bookings: Booking[]; mode: BookingMode }
 
@@ -32,7 +36,7 @@ function hash(value: string): number {
 
 export function seedState(start = today()): DemoState {
 
-  const names = ['Северный ветер', 'Тихий час', 'Бетон', 'Пятый такт', 'Дальний свет', 'Пауза'];
+  const names = demoNames;
 
   const bookings: Booking[] = [];
 
@@ -54,7 +58,7 @@ export function seedState(start = today()): DemoState {
 
         id, roomId: room.id, date, slotId: slot.id, band: names[Math.floor(hash(id) * names.length)],
 
-        channel: 'Telegram', contact: '@demo_group', rentals: {}, total: price(room, date, slot.id),
+        channel: 'Telegram', contact: '@demo_group', rentals: {}, total: price(room, date, slot.id) ?? 0,
 
         status: 'confirmed', createdAt: `${start}T08:00:00+03:00`, source: 'seed', mode: 'instant',
 
@@ -107,6 +111,12 @@ function issueRentals(rentals: Record<string, number>, previous?: Booking) {
     normalized[item.id] = source.perUnit ? qty : Math.min(1, qty);
     rentalSnapshot[item.id] = { name: source.name, price: source.price, ...(source.perUnit === undefined ? {} : { perUnit: source.perUnit }), ...(source.freeQty === undefined ? {} : { freeQty: source.freeQty }) };
   }
+  // Removed catalog entries remain part of previously issued equipment.
+  if (previous) for (const [id, qty] of Object.entries(previous.rentals)) {
+    if (qty <= 0 || equipmentCatalog.get().some(item => item.id === id)) continue;
+    const old = previous.rentalSnapshot?.[id] || base.rentals.find(item => item.id === id);
+    if (old) { normalized[id] = qty; rentalSnapshot[id] = { ...old }; }
+  }
   return { rentals: normalized, rentalSnapshot };
 }
 function decode(raw: string | null): DemoState | null {
@@ -121,12 +131,13 @@ function decode(raw: string | null): DemoState | null {
 
     if (!parsed.bookings.every(b => typeof b.id === 'string' && typeof b.band === 'string' && typeof b.contact === 'string' &&
 
-      typeof b.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.date) && base.rooms.some(r => r.id === b.roomId) &&
+      typeof b.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.date) && Number.isSafeInteger(b.roomId) && b.roomId > 0 &&
 
       base.schedule.slots.some(s => s.id === b.slotId) && ['pending', 'confirmed', 'rejected', 'cancelled', 'completed', 'no_show'].includes(b.status) &&
 
       ['request', 'instant'].includes(b.mode) && b.rentals && typeof b.rentals === 'object' && Number.isFinite(b.total) &&
 
+      (b.roomName === undefined || typeof b.roomName === 'string' && b.roomName.length <= 160) &&
       (b.rentalSnapshot === undefined || b.rentalSnapshot && typeof b.rentalSnapshot === 'object' && Object.values(b.rentalSnapshot).every(r => r && typeof r.name === 'string' && Number.isFinite(r.price) && r.price >= 0 && (r.perUnit === undefined || typeof r.perUnit === 'boolean') && (r.freeQty === undefined || Number.isSafeInteger(r.freeQty) && r.freeQty >= 0))) &&
       (b.paidAt === undefined || typeof b.paidAt === 'string' && Number.isFinite(Date.parse(b.paidAt))) &&
 
@@ -144,7 +155,7 @@ function decode(raw: string | null): DemoState | null {
 
     // Preserve existing records, totals, identities and equipment when retiring manual approval.
 
-    return { ...parsed, mode: 'instant', bookings: parsed.bookings.map(b => ({ ...b, mode: 'instant', status: b.status === 'pending' ? 'confirmed' : b.status })) };
+    return { ...parsed, mode: 'instant', bookings: parsed.bookings.map(b => ({ ...b, band: b.source === 'seed' && legacyGroupNames.includes(b.band) ? demoNames[legacyGroupNames.indexOf(b.band)] : b.band, mode: 'instant', status: b.status === 'pending' ? 'confirmed' : b.status })) };
 
   } catch { return null; }
 
@@ -218,9 +229,9 @@ export const store = {
 
     const current = read() || state;
 
-    const room = base.rooms.find(item => item.id === input.roomId);
+    const room = halls.get().find(item => item.id === input.roomId);
 
-    if (!room || !base.schedule.slots.some(item => item.id === input.slotId)) throw new Error('Выберите зал и время');
+    if (!room || input.source === 'site' && !room.visible || !base.schedule.slots.some(item => item.id === input.slotId)) throw new Error('Выберите зал и время');
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || input.date < today() || input.date > (input.source === 'admin' ? adminBookingEnd() : addDays(today(), 13)) || isPastSlot(input.date, input.slotId)) throw new Error('Это время уже недоступно. Выберите другой слот');
 
@@ -228,6 +239,8 @@ export const store = {
 
     if (current.bookings.some(item => isActive(item) && item.roomId === input.roomId && item.date === input.date && item.slotId === input.slotId)) throw new Error('Этот слот уже занят. Выберите другое время');
 
+    const roomPrice = price(room, input.date, input.slotId);
+    if (roomPrice === null) throw new Error('Цена не указана. Уточните стоимость у администратора.');
     const issued = issueRentals(input.rentals);
     const rentals = issued.rentals;
 
@@ -243,7 +256,7 @@ export const store = {
 
       } } : {}),
 
-      id: crypto.randomUUID(), total: price(room, input.date, input.slotId) + bookingRentalTotal(issued),
+      id: newId(), roomName: room.name, total: roomPrice + bookingRentalTotal(issued),
 
       status: 'confirmed', createdAt: new Date().toISOString(), mode: 'instant' };
 
@@ -293,7 +306,7 @@ export const store = {
 
     requireOpen(booking);
 
-    if (!isPastSlot(booking.date, booking.slotId)) throw new Error('Завершить репетицию можно только после начала записи');
+    // Demo owners can demonstrate the full booking lifecycle before its scheduled start.
 
     const timestamp = new Date().toISOString();
 
@@ -335,7 +348,7 @@ export const store = {
 
     const corrected: Booking = { ...booking, corrections: [...(booking.corrections || []), {
 
-      id: crypto.randomUUID(), action, at: new Date().toISOString(),
+      id: newId(), action, at: new Date().toISOString(),
 
     }] };
 

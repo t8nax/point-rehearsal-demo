@@ -1,4 +1,4 @@
-import { base } from './domain';
+import base from '../data/base.json';
 
 export const equipmentCategories = ['Барабаны', 'Гитары', 'Клавишные', 'Другое'] as const;
 export type EquipmentCategory = typeof equipmentCategories[number];
@@ -7,9 +7,8 @@ export interface CatalogItem {
   quantity: number | null; visible: boolean; perUnit?: boolean; freeQty?: number; note?: string;
 }
 export const EQUIPMENT_STORAGE_KEY = 'point-equipment-catalog-v1';
-const quantities: Record<string, number> = { pedal: 7, cymbals: 2, 'cymbals-fx': 1, china: 1, 'crash-extra': 2, 'double-pedal': 2, guitar: 2, bass: 4, synth: 2 };
 export function defaultCatalog(): CatalogItem[] {
-  return base.rentals.map(item => ({ ...item, name: item.id === 'mic' ? 'Микрофон' : item.name, perUnit: true, freeQty: item.freeQty ?? 0, category: item.id === 'mic' ? 'Другое' : item.id === 'synth' ? 'Клавишные' : ['guitar', 'bass'].includes(item.id) ? 'Гитары' : 'Барабаны', quantity: quantities[item.id] ?? null, visible: item.id !== 'double-pedal' }));
+  return base.rentals.map(item => ({ ...item, name: item.id === 'mic' ? 'Микрофон' : item.name, perUnit: true, freeQty: item.freeQty ?? 0, category: item.id === 'mic' ? 'Другое' : item.id === 'synth' ? 'Клавишные' : ['guitar', 'bass'].includes(item.id) ? 'Гитары' : 'Барабаны', quantity: null, visible: true }));
 }
 function valid(item: unknown): item is CatalogItem {
   if (!item || typeof item !== 'object') return false;
@@ -29,6 +28,11 @@ if (typeof window !== 'undefined') window.addEventListener('storage', event => {
 export const equipmentCatalog = {
   get: () => snapshot,
   subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
+  remove(id: string) {
+    const next = (read() || snapshot).filter(item => item.id !== id);
+    try { localStorage.setItem(EQUIPMENT_STORAGE_KEY, JSON.stringify(next)); } catch { throw new Error('Не удалось сохранить изменения в браузере.'); }
+    snapshot = next; listeners.forEach(listener => listener());
+  },
   save(item: CatalogItem) {
     const normalized = normalizeCatalogItem({ ...item, name: item.name.trim() });
     if (!valid(normalized)) throw new Error('Проверьте название, цену и количество оборудования.');

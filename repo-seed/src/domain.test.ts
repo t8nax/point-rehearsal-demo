@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { defaultPricing } from './pricing';
 import { addDays, adminBookingEnd, base, bookingTimePhase, bookingUndoAction, cancellationFee, createIcs, isActive, normalizeRentals, newBookingDefaults, price, rentalTotal, slotEnd, today, type Booking } from './domain';
 
 const booking: Booking = { id: 'test', roomId: 1, date: '2026-11-02', slotId: 's1', band: 'Тест, группа', channel: 'Telegram', contact: '@test', rentals: {}, total: 1100, status: 'pending', createdAt: '2026-10-30T09:00:00Z', source: 'site', mode: 'request' };
+it('uses a third named tariff for the assigned weekday and slot', () => {
+  const config = defaultPricing();
+  config.tariffs.push({ id: 'special', name: 'Особый', color: 2 });
+  config.assignment['s2:0'] = 'special';
+  const room = { prices: { ...base.rooms[0].prices, special: 1550 } };
+  expect(price(room, '2026-11-02', 's2', config)).toBe(1550);
+  expect(price(room, '2026-11-03', 's2', config)).toBe(room.prices.day);
+  expect(price({ prices: {} }, '2026-11-02', 's2', config)).toBeNull();
+});
 describe('tariffs from base.json', () => {
   for (const room of base.rooms) {
     it(`${room.name}: all weekday daytime slots`, () => {

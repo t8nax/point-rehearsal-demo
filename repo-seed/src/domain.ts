@@ -1,7 +1,9 @@
 import data from '../data/base.json';
+import { halls } from './halls';
+import { pricing, type PricingConfig } from './pricing';
 
 export const base = data;
-export type Room = (typeof base.rooms)[number];
+export type Room = import('./halls').Hall;
 export type SlotId = string;
 export type BookingStatus = 'pending' | 'confirmed' | 'rejected' | 'cancelled' | 'completed' | 'no_show';
 export type BookingMode = 'request' | 'instant';
@@ -15,6 +17,7 @@ export interface Booking {
   id: string; roomId: number; date: string; slotId: SlotId; band: string;
   channel: string; contact: string; rentals: Record<string, number>; total: number;
   status: BookingStatus; createdAt: string; source: 'seed' | 'site' | 'admin'; mode: BookingMode;
+  roomName?: string;
   rentalSnapshot?: Record<string, RentalSnapshot>;
   demoIdentity?: DemoIdentity;
   completionPaid?: boolean;
@@ -46,8 +49,9 @@ export function isWeekdayDay(date: string, slotId: SlotId): boolean {
   const day = new Date(`${date}T12:00:00Z`).getUTCDay();
   return day >= 1 && day <= 5 && ['s1', 's2', 's3'].includes(slotId);
 }
-export function price(room: Room, date: string, slotId: SlotId): number {
-  return isWeekdayDay(date, slotId) ? room.prices.day : room.prices.peak;
+export function price(room: { prices: Record<string, number | null> }, date: string, slotId: SlotId, config: PricingConfig = pricing.get()): number | null {
+  const day = (new Date(`${date}T12:00:00Z`).getUTCDay() + 6) % 7;
+  return room.prices[config.assignment[`${slotId}:${day}`]] ?? null;
 }
 function rentalQuantity(value: number | undefined): number {
   return typeof value === 'number' && Number.isSafeInteger(Math.floor(value)) ? Math.max(0, Math.floor(value)) : 0;
@@ -134,9 +138,9 @@ export function newBookingDefaults(bookings: Booking[], now = new Date()) {
   for (let date = start; date <= end; date = addDays(date, 1)) {
     for (const slot of base.schedule.slots) {
       if (isPastSlot(date, slot.id, now)) continue;
-      const room = base.rooms.find(room => !bookings.some(booking => isActive(booking) && booking.date === date && booking.roomId === room.id && booking.slotId === slot.id));
+      const room = halls.get().find(room => !bookings.some(booking => isActive(booking) && booking.date === date && booking.roomId === room.id && booking.slotId === slot.id));
       if (room) return { date, roomId: room.id, slotId: '' };
     }
   }
-  return { date: start, roomId: base.rooms[0].id, slotId: '' };
+  return { date: start, roomId: halls.get()[0]?.id ?? 0, slotId: '' };
 }

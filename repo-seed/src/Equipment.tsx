@@ -2,11 +2,12 @@ import { useId, useState, useSyncExternalStore } from 'react';
 import { type Room } from './domain';
 import { equipmentCatalog, type CatalogItem } from './equipment-catalog';
 
-type Icon = 'drum' | 'guitar' | 'speaker' | 'cymbal' | 'keys' | 'mic';
+type Icon = 'drum' | 'guitar' | 'speaker' | 'cymbal' | 'keys' | 'mic' | 'other';
 type EquipmentRow = { category: string; title: string; detail?: string; icon: Icon };
 
-function EquipmentIcon({ kind }: { kind: Icon }) {
+export function EquipmentIcon({ kind }: { kind: Icon }) {
   const paths = {
+    other: <><path d="M14 17V3l6 3v5l-6-3"/><ellipse cx="10" cy="17" rx="4" ry="3"/></>,
     drum: <><ellipse cx="12" cy="8" rx="9" ry="4" /><path d="M3 8v9c0 5 18 5 18 0V8M7 12v7m10-7v7M6 2l8 4m4-5-5 5" /></>,
     guitar: <><path d="m14 8 6-6 2 2-6 6M14 8c-2-2-4-1-4 1 0 2-1 3-3 3-3-1-6 3-4 6l3 3c3 2 7-1 6-4 0-2 1-3 3-3 2 0 3-2 1-4" /><circle cx="9" cy="15" r="2" /></>,
     speaker: <><rect x="5" y="2" width="14" height="20" rx="2" /><circle cx="12" cy="15" r="4" /><circle cx="12" cy="6" r="1" /></>,
@@ -17,18 +18,12 @@ function EquipmentIcon({ kind }: { kind: Icon }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[kind]}</svg>;
 }
 
-function roomEquipment(equipment: string[]): EquipmentRow[] {
-  return equipment.map(item => {
-    const match = item.match(/^(Барабаны|Бас-комбо|Бас|Гитара(?:, стек)? \d+|Линия)(?::\s*|\s+)/);
-    const category = match ? match[1].replace(', стек', '') : 'Другое';
-    const [title, ...detail] = (match ? item.slice(match[0].length) : item).split(' + ');
-    const icon: Icon = category === 'Барабаны' ? 'drum' : category === 'Линия' ? 'speaker' : category === 'Другое' ? 'mic' : 'guitar';
-    return { category, title, detail: detail.join(' + '), icon };
-  });
+function roomEquipment(equipment: Room['equipment']): EquipmentRow[] {
+  return equipment.map(item => ({ category: item.category, title: item.name, icon: item.category === 'Барабаны' ? 'drum' : item.category === 'Гитары' ? 'guitar' : item.category === 'Клавишные' ? 'keys' : item.category === 'Усилители и кабинеты' ? 'speaker' : 'other' }));
 }
 
 function additionalEquipment(items: CatalogItem[]): EquipmentRow[] {
-  return items.filter(item => item.visible).map(item => ({ category: item.category, title: item.name, detail: item.note, icon: item.category === 'Барабаны' ? 'drum' : item.category === 'Гитары' ? 'guitar' : item.category === 'Клавишные' ? 'keys' : 'mic' }));
+  return items.filter(item => item.visible).map(item => ({ category: item.category, title: item.name, detail: item.note, icon: item.category === 'Барабаны' ? 'drum' : item.category === 'Гитары' ? 'guitar' : item.category === 'Клавишные' ? 'keys' : 'other' }));
 }
 
 function EquipmentList({ items }: { items: EquipmentRow[] }) {
@@ -49,7 +44,7 @@ export default function Equipment({ room }: { room: Room }) {
       <button type="button" aria-pressed={section === 'extra'} aria-controls={`${id}-extra`} onClick={() => setSection('extra')}>Дополнительно</button>
     </div>
     <section id={`${id}-room`} hidden={section !== 'room'} aria-label="Оборудование в зале">
-      {room.equipment ? <EquipmentList items={roomEquipment(room.equipment)} /> : <p className="client-muted">Оборудование{!room.area ? ' и площадь' : ''} — уточняйте у администратора.</p>}
+      {room.equipment.length ? <EquipmentList items={roomEquipment(room.equipment)} /> : <p className="client-muted">Оборудование — уточняйте у администратора</p>}
     </section>
     <section id={`${id}-extra`} hidden={section !== 'extra'} aria-label="Дополнительное оборудование">
       <p className="client-equipment-hint">Выбирается на месте. Наличие уточняйте у администратора.</p>
